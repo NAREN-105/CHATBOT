@@ -762,20 +762,20 @@ class ChatbotApp:
         )
         manual_input_btn.pack(side=tk.LEFT, padx=(0, 10))
         
-        if PPTX_WRITE_AVAILABLE:
-            ppt_btn = tk.Button(
-                button_frame,
-                text="📊 Generate PPT",
-                command=self.generate_ppt,
-                bg='#fd7e14',
-                fg='white',
-                font=('Arial', 9, 'bold'),
-                relief=tk.FLAT,
-                cursor='hand2',
-                padx=15,
-                pady=8
-            )
-            ppt_btn.pack(side=tk.LEFT)
+        ppt_btn = tk.Button(
+            button_frame,
+            text="📊 Generate PPT",
+            command=self.generate_ppt,
+            bg='#fd7e14',
+            fg='white',
+            font=('Arial', 9, 'bold'),
+            relief=tk.FLAT,
+            cursor='hand2',
+            padx=15,
+            pady=8,
+            state=tk.NORMAL if PPTX_WRITE_AVAILABLE else tk.DISABLED
+        )
+        ppt_btn.pack(side=tk.LEFT)
         
         self.manual_input_frame = tk.Frame(upload_main_frame, bg='white')
         
@@ -1083,18 +1083,7 @@ class ChatbotApp:
                         if len(slide.shapes) > 1:
                             slide.placeholders[1].text = slide_data['subtitle']
                 
-                save_path = filedialog.asksaveasfilename(
-                    defaultextension=".pptx",
-                    filetypes=[("PowerPoint", "*.pptx")],
-                    initialfile="generated_presentation.pptx"
-                )
-                
-                if save_path:
-                    prs.save(save_path)
-                    self.root.after(0, lambda: self.add_bot_message(
-                        f"✅ PowerPoint generated successfully! Saved to: {os.path.basename(save_path)}"))
-                    self.root.after(0, lambda: messagebox.showinfo("Success", 
-                                    f"Presentation created with {len(slides_content)} slides!"))
+                self.root.after(0, lambda: self.save_presentation(prs, len(slides_content)))
             
             except Exception as e:
                 self.root.after(0, lambda: messagebox.showerror("Error", f"Error generating PPT: {str(e)}"))
@@ -1103,6 +1092,20 @@ class ChatbotApp:
         thread = threading.Thread(target=generate_thread)
         thread.daemon = True
         thread.start()
+
+    def save_presentation(self, presentation, slide_count):
+        save_path = filedialog.asksaveasfilename(
+            defaultextension=".pptx",
+            filetypes=[("PowerPoint", "*.pptx")],
+            initialfile="generated_presentation.pptx"
+        )
+
+        if save_path:
+            presentation.save(save_path)
+            self.add_bot_message(
+                f"✅ PowerPoint generated successfully! Saved to: {os.path.basename(save_path)}"
+            )
+            messagebox.showinfo("Success", f"Presentation created with {slide_count} slides!")
     
     def handle_enter(self, event):
         if event.state & 0x1:  # Shift+Enter
