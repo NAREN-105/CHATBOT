@@ -253,11 +253,11 @@ class SemanticMatcher:
         
         
         for keyword in query_concepts['keywords']:
-            if keyword in sentence_lower:
+            if re.search(rf'\b{re.escape(keyword)}\b', sentence_lower):
                 score += 2
                 matches.append(keyword)
                
-                score += sentence_lower.count(keyword) * 0.5
+                score += len(re.findall(rf'\b{re.escape(keyword)}\b', sentence_lower)) * 0.5
         
         
         for phrase in query_concepts['phrases']:
@@ -266,8 +266,7 @@ class SemanticMatcher:
                 matches.append(phrase)
         
       
-        word_count = len(sentence.split())
-        if 10 < word_count < 50:
+        if matches and 10 < len(sentence.split()) < 50:
             score += 1
         
         return {
@@ -282,25 +281,23 @@ class SemanticMatcher:
         concepts = analysis['concepts']
         
      
-        sentences = [s.strip() for s in re.split(r'[.!?]+', content) if len(s.strip()) > 15]
+        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+|\n+', content) if len(s.strip()) > 15]
         
         if not sentences:
-            return []
+            return [], analysis
         
         
         scored = []
         for i, sent in enumerate(sentences):
             result = self.compute_semantic_score(concepts, sent)
             
-            if i < 20:
-                result['score'] += (20 - i) * 0.1
             scored.append(result)
         
       
         scored.sort(key=lambda x: x['score'], reverse=True)
         
        
-        relevant = [s for s in scored if s['score'] > 0]
+        relevant = [s for s in scored if s['matches'] and s['score'] > 0]
         return relevant[:top_n], analysis
 
 class AdvancedResponseEngine:
@@ -991,7 +988,7 @@ class ChatbotApp:
             with open(file_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
                 for page in pdf_reader.pages:
-                    text += page.extract_text() + "\n"
+                    text += (page.extract_text() or "") + "\n"
         except Exception as e:
             raise Exception(f"PDF extraction error: {str(e)}")
         return text
@@ -1071,9 +1068,10 @@ class ChatbotApp:
                         
                         body_shape = slide.shapes.placeholders[1]
                         tf = body_shape.text_frame
+                        tf.clear()
                         
-                        for bullet in slide_data['bullets']:
-                            p = tf.add_paragraph()
+                        for index, bullet in enumerate(slide_data['bullets']):
+                            p = tf.paragraphs[0] if index == 0 else tf.add_paragraph()
                             p.text = bullet[:150]
                             p.level = 0
                     
